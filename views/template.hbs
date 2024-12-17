@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Resume Template 1</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        .header {
+            text-align: center;
+            padding: 10px;
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        .header h1 {
+            margin: 0;
+        }
+
+        .section {
+            padding: 20px;
+            margin: 10px;
+        }
+
+        .section h2 {
+            margin-top: 0;
+            color: #333;
+        }
+
+        .content {
+            margin-left: 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="header">
+        <h1>{{name}}</h1>
+        <p>{{email}} | {{phone}} | {{linkedin}}</p>
+    </div>
+
+    <div class="section">
+        <h2>Experience</h2>
+        <div class="content">
+            <p>{{experience}}</p>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Education</h2>
+        <div class="content">
+            <p>{{education}}</p>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>Skills</h2>
+        <div class="content">
+            <p>{{skills}}</p>
+        </div>
+    </div>
+</body>
+
+</html>

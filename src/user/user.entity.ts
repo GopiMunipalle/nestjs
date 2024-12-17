@@ -1,4 +1,5 @@
-import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
+import { Resume } from "src/resume/resume.entity";
+import { Column, CreateDateColumn, Entity, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from "typeorm";
 
 export enum Role {
     CUSTOMER = 'CUSTOMER',
@@ -11,43 +12,52 @@ export enum Role {
 @Entity()
 export default class User {
     @PrimaryGeneratedColumn()
-    id: number
+    id: number;
+
     @Column()
-    name: string
+    name: string;
+
     @Column()
-    email: string
+    email: string;
+
     @Column()
-    password: string
+    password: string;
+
     @Column({ default: true })
-    isActive: boolean
+    isActive: boolean;
+
     @Column({ type: 'enum', enum: Role })
-    role: Role
+    role: Role;
+
+    @OneToMany(() => Resume, resume => resume.user, { cascade: true })
+    resumes: Resume[];
+
     @CreateDateColumn()
-    createdAt: Date
+    createdAt: Date;
+
     @UpdateDateColumn()
-    updatedAt: Date
+    updatedAt: Date;
 }
 
 export class userResponseData {
-    id: number
-    name: string
-    email: string
-    role: Role
-    token?: string
-    createdAt: Date
-    updatedAt: Date
+    id: number;
+    name: string;
+    email: string;
+    role: Role;
+    token?: string;
+    createdAt: Date;
+    updatedAt: Date;
 }
 
 export class userResponse {
-    data: userResponseData
+    data: userResponseData;
 }
 
-
 export class error {
-    status: number
-    error: string
+    status: number;
+    error: string;
 }
 
 export class errorResponse {
-    data: error
+    data: error;
 }
