@@ -1,8 +1,10 @@
-import { Body, Controller, Get, Post, Render, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Render, Req, UseGuards } from '@nestjs/common';
 import { ResumeService } from './resume.service';
 import { Response, Request } from 'express';
 import { CreateResumeDto } from './dto/create-resume.dto';
 import { JwtAuthGuard } from 'src/jwt-auth/jwt-auth.guard';
+import { RolesGuard } from 'src/guards/role-guard';
+import { Roles } from 'src/user-role/user-role.decorator';
 
 @Controller('resume')
 export class ResumeController {
@@ -20,14 +22,27 @@ export class ResumeController {
         return data
     }
 
-    @Post('/save')
-    @UseGuards(JwtAuthGuard)
+    @Get('/all')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('CUSTOMER', 'ADMIN', 'GUARD', 'SOCIETY_MEMBER', 'SOCIETY_ADMIN')
+    async getAllResume(@Req() req: Request) {
+        const userId = req['user'].id;
+        return this.resumeService.findAllWithRelations(userId);
+    }
 
-    async saveResumeDetails(@Body() body: CreateResumeDto, req: Request) {
-        this.resumeService.createResume(body)
+    @Get('/:id')
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('CUSTOMER', 'ADMIN', 'GUARD', 'SOCIETY_MEMBER', 'SOCIETY_ADMIN')
+    async getOneResume(@Param('id') id: number) {
+        return this.resumeService.findOneWithRelations(id);
     }
+
     @Post()
-    async createResume(@Body() createResumeDto: CreateResumeDto) {
-        return this.resumeService.createResume(createResumeDto);
+    @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('CUSTOMER', 'ADMIN', 'GUARD', 'SOCIETY_MEMBER', 'SOCIETY_ADMIN')
+    async generateResume(@Body() createResumeDto: CreateResumeDto, @Req() req: Request) {
+        const userId = req['user'].id;
+        return this.resumeService.createResume(createResumeDto, userId);
     }
+
 }

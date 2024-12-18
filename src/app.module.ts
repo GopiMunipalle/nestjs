@@ -1,35 +1,62 @@
-import { Logger, MiddlewareConsumer, Module, NestModule, RequestMethod } from '@nestjs/common';
+import { Module, } from '@nestjs/common';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { UserModule } from './user/user.module';
 import User from './user/user.entity';
-import { UserService } from './user/user.service';
-import { JwtAuthGuard } from './jwt-auth/jwt-auth.guard';
 import { ChatModule } from './chat/chat.module';
 import { EventsGateway } from './events/events.gateway';
-import { ResumeService } from './resume/resume.service';
-import { ResumeController } from './resume/resume.controller';
 import { ResumeModule } from './resume/resume.module';
 import { Experience, Resume, Education, Project, Award, Certification } from './resume/resume.entity';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { WinstonModule } from 'nest-winston';
+import * as winston from 'winston';
+import { WinstonLoggerService } from './loggers/winstone-logger';
 
 @Module({
   imports: [
-    TypeOrmModule.forRoot({
-      type: 'postgres',
-      host: 'localhost',
-      url: 'postgresql://neondb_owner:y8GtHWPfanp9@ep-plain-mode-a5uiixtb.us-east-2.aws.neon.tech/pg?sslmode=require',
-      port: 5432,
-      database: 'pg',
-      entities: [User, Resume, Experience, Education, Project, Award, Certification],
-      synchronize: true,
-      logging: true
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: '.env.development'
+    }),
+    WinstonModule.forRoot({
+      transports: [
+        new winston.transports.Console({
+          format: winston.format.combine(
+            winston.format.colorize(),
+            winston.format.timestamp(),
+            winston.format.printf(({ timestamp, level, message }) => {
+              return `${timestamp} [${level}]: ${message}`;
+            }),
+          ),
+        }),
+        new winston.transports.File({ filename: 'loggers/application.log' }),
+      ],
+    }),
+    TypeOrmModule.forRootAsync({
+      useFactory: async (configService: ConfigService) => ({
+        type: 'postgres',
+        host: configService.get<string>('DB_HOST'),
+        port: parseInt(configService.get<string>('DB_PORT'), 10),
+        username: configService.get<string>('DB_USER'),
+        password: configService.get<string>('DB_PASSWORD'),
+        database: configService.get<string>('DB_NAME'),
+        url: configService.get<string>('DB_URL'),
+        entities: [User, Resume, Experience, Education, Project, Award, Certification],
+        synchronize: true,
+        // migrations: ['src/migration/*.ts'],  
+        logging: false,
+      }),
+      inject: [ConfigService],
     }),
     UserModule,
     ChatModule,
     ResumeModule
   ],
   controllers: [AppController,],
-  providers: [AppService, EventsGateway,],
+  providers: [AppService, EventsGateway, {
+    provide: WinstonLoggerService,
+    useClass: WinstonLoggerService
+  }],
 })
 export class AppModule { }

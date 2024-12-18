@@ -129,7 +129,7 @@ export class UserService {
             if (!isMatch) {
                 return {
                     data: {
-                        error: 'Unauthorized',
+                        error: 'Invalid Password',
                         status: HttpStatus.UNAUTHORIZED
                     }
                 }
@@ -181,8 +181,8 @@ export class UserService {
             user.password = hashedPassword;
         }
 
-        user.email = email.toLowerCase() || user.email;
-        user.name = name.toLowerCase() || user.name;
+        user.email = email || user.email;
+        user.name = name || user.name;
         const updatedUser = await this.userRepository.save(user);
         return {
             data: {
