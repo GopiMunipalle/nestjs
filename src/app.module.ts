@@ -63,4 +63,4 @@ import { WinstonLoggerService } from './loggers/winstone-logger';
   ],
   exports: ['LoggerService'],
 })
-export class AppModule {}
+export class AppModule { }

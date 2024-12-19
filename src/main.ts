@@ -13,6 +13,14 @@ async function bootstrap() {
     }),
   );
 
+  app.enableCors({
+    origin: ['http://localhost:5175'],
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    allowedHeaders: 'Content-Type, Accept, Authorization',
+    credentials: true,
+  });
+
+
   const logger = app.get('LoggerService');
   app.useLogger(logger);
   app.useStaticAssets(join(__dirname, '..', 'public'));

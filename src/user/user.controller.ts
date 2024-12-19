@@ -27,12 +27,12 @@ export class UserController {
         return this.userService.findOne(userId)
     }
 
-    @Post('/signUp')
+    @Post('/signup')
     async signUpUser(@Body() body: createUserDto): Promise<userResponse | errorResponse> {
         return this.userService.signUp(body.name, body.email, body.password, body.role);
     }
 
-    @Post()
+    @Post('/login')
     async loginUser(@Body() body: loginUserDto): Promise<userResponse | errorResponse> {
         return this.userService.login(body.email, body.password)
     }
