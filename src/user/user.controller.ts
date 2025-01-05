@@ -1,4 +1,14 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Post,
+  Put,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { UserService } from './user.service';
 import { errorResponse, Role, userResponse } from './user.entity';
 import { createUserDto } from './dto/create-user.dto';
@@ -11,43 +21,62 @@ import { JwtAuthGuard } from 'src/jwt-auth/jwt-auth.guard';
 
 @Controller('user')
 export class UserController {
-    constructor(private readonly userService: UserService) { }
+  constructor(private readonly userService: UserService) {}
 
-    @Get()
-    async getAllUsers(): Promise<userResponse[] | errorResponse> {
-        return this.userService.findAll()
-    }
+  @Get()
+  async getAllUsers(): Promise<userResponse[] | errorResponse> {
+    return this.userService.findAll();
+  }
 
-    @Get('/one')
-    @Roles('ADMIN', 'CUSTOMER', 'GUARD', 'SOCIETY_MEMBER', 'SOCIETY_ADMIN')
-    @UseGuards(RolesGuard)
-    @UseGuards(JwtAuthGuard)
-    async getSingleUser(@Req() req: Request): Promise<userResponse | errorResponse> {
-        const userId = req['user'].id
-        return this.userService.findOne(userId)
-    }
+  @Get('/one')
+  @Roles('ADMIN', 'CUSTOMER', 'GUARD', 'SOCIETY_MEMBER', 'SOCIETY_ADMIN')
+  @UseGuards(RolesGuard)
+  @UseGuards(JwtAuthGuard)
+  async getSingleUser(
+    @Req() req: Request,
+  ): Promise<userResponse | errorResponse> {
+    const userId = req['user'].id;
+    return this.userService.findOne(userId);
+  }
 
-    @Post('/signup')
-    async signUpUser(@Body() body: createUserDto): Promise<userResponse | errorResponse> {
-        return this.userService.signUp(body.name, body.email, body.password, body.role);
-    }
+  @Post('/signup')
+  async signUpUser(
+    @Body() body: createUserDto,
+  ): Promise<userResponse | errorResponse> {
+    return this.userService.signUp(
+      body.name,
+      body.email,
+      body.password,
+      body.role,
+    );
+  }
 
-    @Post('/login')
-    async loginUser(@Body() body: loginUserDto): Promise<userResponse | errorResponse> {
-        return this.userService.login(body.email, body.password)
-    }
+  @Post('/login')
+  async loginUser(
+    @Body() body: loginUserDto,
+  ): Promise<userResponse | errorResponse> {
+    return this.userService.login(body.email, body.password);
+  }
 
-    @Put()
-    async updateUser(@Body() body: UpdateUserDto) {
-        return this.userService.updateUser(body.id, body.email, body.name, body.password)
-    }
+  @Put()
+  async updateUser(@Body() body: UpdateUserDto) {
+    return this.userService.updateUser(
+      body.id,
+      body.email,
+      body.name,
+      body.password,
+      body.githubUrl,
+      body.linkedinUrl,
+      body.number,
+    );
+  }
 
-    @Delete()
-    @UseGuards(JwtAuthGuard)
-    @Roles('CUSTOMER', 'ADMIN', 'GUARD', 'SOCIETY_MEMBER', 'SOCIETY_ADMIN')
-    @UseGuards(RolesGuard)
-    async removeUser(@Param() req: Request) {
-        const id = req['user'].id
-        return this.userService.removeUser(id)
-    }
+  @Delete()
+  @UseGuards(JwtAuthGuard)
+  @Roles('CUSTOMER', 'ADMIN', 'GUARD', 'SOCIETY_MEMBER', 'SOCIETY_ADMIN')
+  @UseGuards(RolesGuard)
+  async removeUser(@Param() req: Request) {
+    const id = req['user'].id;
+    return this.userService.removeUser(id);
+  }
 }

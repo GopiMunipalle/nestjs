@@ -46,6 +46,8 @@ export class ResumeService {
         ...resumeData
       } = createResumeDto;
 
+      this.logger.log('Creating resume', createResumeDto);
+
       const resume = this.resumeRepository.create(resumeData);
 
       const savedResume = await this.resumeRepository.save(resume);
@@ -90,10 +92,25 @@ export class ResumeService {
       });
 
       if (user) {
+        this.logger.log('User found', user);
+        user.number = resumeData.number || user.number;
+        user.linkedinUrl = resumeData.linkedinUrl || user.linkedinUrl;
+        user.githubUrl = resumeData.githubUrl || user.githubUrl;
         user.resumes.push(savedResume);
         await this.userRepository.save(user);
       }
-      return savedResume;
+      const resumeDoc = await this.resumeRepository.findOne({
+        where: { id: savedResume.id },
+        relations: [
+          'experience',
+          'education',
+          'projects',
+          'awards',
+          'certifications',
+          'user',
+        ],
+      });
+      return resumeDoc;
     } catch (error) {
       return {
         data: {

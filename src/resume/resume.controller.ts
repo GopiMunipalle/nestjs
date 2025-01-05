@@ -14,6 +14,8 @@ import { CreateResumeDto } from './dto/create-resume.dto';
 import { JwtAuthGuard } from 'src/jwt-auth/jwt-auth.guard';
 import { RolesGuard } from 'src/guards/role-guard';
 import { Roles } from 'src/user-role/user-role.decorator';
+import { errorResponse } from 'src/user/user.entity';
+import ResumeResponseDto from './dto/resume-response.dto';
 
 @Controller('resume')
 export class ResumeController {
@@ -33,26 +35,29 @@ export class ResumeController {
 
   @Get('/all')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('CUSTOMER', 'ADMIN', 'GUARD', 'SOCIETY_MEMBER', 'SOCIETY_ADMIN')
-  async getAllResume(@Req() req: Request) {
+  @Roles('CUSTOMER', 'ADMIN')
+  async getAllResume(
+    @Req() req: Request,
+  ): Promise<ResumeResponseDto | errorResponse> {
     const userId = req['user'].id;
     return this.resumeService.findAllWithRelations(userId, req);
   }
 
   @Get('/:id')
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('CUSTOMER', 'ADMIN', 'GUARD', 'SOCIETY_MEMBER', 'SOCIETY_ADMIN')
-  async getOneResume(@Param('id') id: number) {
+  @Roles('CUSTOMER', 'ADMIN')
+  async getOneResume(@Param('id') id: number): Promise<any | errorResponse> {
     return this.resumeService.findOneWithRelations(id);
   }
 
   @Post()
   @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles('CUSTOMER', 'ADMIN', 'GUARD', 'SOCIETY_MEMBER', 'SOCIETY_ADMIN')
+  @Roles('CUSTOMER', 'ADMIN')
   async generateResume(
     @Body() createResumeDto: CreateResumeDto,
     @Req() req: Request,
-  ) {
+  ): Promise<any | errorResponse> {
+    console.log('resume data', createResumeDto);
     const userId = req['user'].id;
     return this.resumeService.createResume(createResumeDto, userId);
   }
