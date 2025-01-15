@@ -7,6 +7,7 @@ import { HttpStatus } from '@nestjs/common';
 import * as jwt from 'jsonwebtoken';
 import { userResponse } from './user.entity';
 import { errorResponse } from './user.entity';
+import uploadFiles from 'src/libraries/minioLib';
 
 @Injectable()
 export class UserService {
@@ -196,6 +197,7 @@ export class UserService {
     githubUrl: string,
     linkedinUrl: string,
     number: string,
+    profilePicture: Express.Multer.File,
   ): Promise<userResponse | errorResponse> {
     const user = await this.userRepository.findOne({ where: { id } });
     if (!user) {
@@ -206,6 +208,17 @@ export class UserService {
         },
       };
     }
+    console.log('user', user);
+    let image = '';
+    if (profilePicture) {
+      // console.log(profilePicture)S
+      const url = await uploadFiles([
+        profilePicture,
+      ] as unknown as Express.Multer.File[]);
+      console.log('url', url);
+      // image = url[0].url;
+    }
+    console.log('image', image);
     if (password) {
       const isValidPassword = await bcrypt.compare(password, user.password);
       if (!isValidPassword) {
@@ -225,6 +238,7 @@ export class UserService {
     user.githubUrl = githubUrl || user.githubUrl;
     user.linkedinUrl = linkedinUrl || user.linkedinUrl;
     user.number = number || user.number;
+
     const updatedUser = await this.userRepository.save(user);
     return {
       data: {

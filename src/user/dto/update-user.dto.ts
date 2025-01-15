@@ -1,10 +1,6 @@
 import { IsOptional, IsString, IsInt, Min } from 'class-validator';
 
 export class UpdateUserDto {
-  @IsInt()
-  @Min(1)
-  id: number;
-
   @IsOptional()
   @IsString()
   email?: string;
@@ -31,5 +27,5 @@ export class UpdateUserDto {
 
   @IsOptional()
   @IsString()
-  profilePicture?: string;
+  profilePicture?: File;
 }

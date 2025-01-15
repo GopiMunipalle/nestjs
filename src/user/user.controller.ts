@@ -7,7 +7,10 @@ import {
   Post,
   Put,
   Req,
+  UploadedFile,
+  UploadedFiles,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { errorResponse, Role, userResponse } from './user.entity';
@@ -18,6 +21,7 @@ import { Request } from 'express';
 import { RolesGuard } from 'src/guards/role-guard';
 import { Roles } from 'src/user-role/user-role.decorator';
 import { JwtAuthGuard } from 'src/jwt-auth/jwt-auth.guard';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @Controller('user')
 export class UserController {
@@ -29,7 +33,7 @@ export class UserController {
   }
 
   @Get('/one')
-  @Roles('ADMIN', 'CUSTOMER', 'GUARD', 'SOCIETY_MEMBER', 'SOCIETY_ADMIN')
+  @Roles('ADMIN', 'CUSTOMER')
   @UseGuards(RolesGuard)
   @UseGuards(JwtAuthGuard)
   async getSingleUser(
@@ -58,22 +62,31 @@ export class UserController {
     return this.userService.login(body.email, body.password);
   }
 
-  @Put()
-  async updateUser(@Body() body: UpdateUserDto) {
+  @Put('/update')
+  @UseGuards(JwtAuthGuard)
+  @Roles('CUSTOMER', 'ADMIN')
+  @UseInterceptors(FileInterceptor('profilePicture'))
+  async updateUser(
+    @Body() body: UpdateUserDto,
+    @UploadedFile() profilePicture: Express.Multer.File,
+    @Req() req: Request,
+  ) {
+    const id = req['user'].id;
     return this.userService.updateUser(
-      body.id,
+      id,
       body.email,
       body.name,
       body.password,
       body.githubUrl,
       body.linkedinUrl,
       body.number,
+      profilePicture,
     );
   }
 
   @Delete()
   @UseGuards(JwtAuthGuard)
-  @Roles('CUSTOMER', 'ADMIN', 'GUARD', 'SOCIETY_MEMBER', 'SOCIETY_ADMIN')
+  @Roles('CUSTOMER', 'ADMIN')
   @UseGuards(RolesGuard)
   async removeUser(@Param() req: Request) {
     const id = req['user'].id;

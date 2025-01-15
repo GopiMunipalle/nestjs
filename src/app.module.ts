@@ -44,7 +44,7 @@ import { WinstonLoggerService } from './loggers/winstone-logger';
         ],
         synchronize: true,
         // migrations: ['src/migration/*.ts'],
-        logging: true,
+        logging: false,
       }),
       inject: [ConfigService],
     }),

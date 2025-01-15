@@ -5,11 +5,9 @@ import { UnauthorizedException, ForbiddenException } from '@nestjs/common';
 
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
-  constructor(private readonly userService: UserService) { }
+  constructor(private readonly userService: UserService) {}
 
-  async canActivate(
-    context: ExecutionContext,
-  ): Promise<boolean> {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
     const token = request.headers['authorization'];
     if (!token) {
