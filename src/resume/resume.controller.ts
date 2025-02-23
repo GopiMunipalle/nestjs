@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Post,
@@ -57,8 +58,14 @@ export class ResumeController {
     @Body() createResumeDto: CreateResumeDto,
     @Req() req: Request,
   ): Promise<any | errorResponse> {
-    console.log('resume data', createResumeDto);
     const userId = req['user'].id;
     return this.resumeService.createResume(createResumeDto, userId);
+  }
+
+  @Delete('/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('CUSTOMER', 'ADMIN')
+  async deleteResume(@Param('id') id: number): Promise<string | errorResponse> {
+    return this.resumeService.deleteResume(id);
   }
 }

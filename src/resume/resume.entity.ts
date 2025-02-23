@@ -63,7 +63,7 @@ export class Experience {
   @Column()
   description: string;
 
-  @Column({ type: 'date' })
+  @Column({ type: 'date', nullable: true })
   startDate: Date;
 
   @Column({ type: 'date', nullable: true })
@@ -90,7 +90,7 @@ export class Education {
   @Column({ type: 'date' })
   startDate: Date;
 
-  @Column({ type: 'date', nullable: true })
+  @Column({ type: 'date' })
   endDate: Date;
 
   @Column({ default: false })
@@ -114,7 +114,7 @@ export class Project {
   @Column()
   description: string;
 
-  @Column({ type: 'date' })
+  @Column({ type: 'date', nullable: true })
   startDate: Date;
 
   @Column({ type: 'date', nullable: true })

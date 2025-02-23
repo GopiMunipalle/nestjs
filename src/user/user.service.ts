@@ -208,17 +208,14 @@ export class UserService {
         },
       };
     }
-    console.log('user', user);
     let image = '';
     if (profilePicture) {
       // console.log(profilePicture)S
       const url = await uploadFiles([
         profilePicture,
       ] as unknown as Express.Multer.File[]);
-      console.log('url', url);
       // image = url[0].url;
     }
-    console.log('image', image);
     if (password) {
       const isValidPassword = await bcrypt.compare(password, user.password);
       if (!isValidPassword) {

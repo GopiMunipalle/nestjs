@@ -59,6 +59,7 @@ export class UserController {
   async loginUser(
     @Body() body: loginUserDto,
   ): Promise<userResponse | errorResponse> {
+    console.log('hi');
     return this.userService.login(body.email, body.password);
   }
 

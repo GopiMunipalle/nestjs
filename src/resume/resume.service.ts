@@ -46,8 +46,6 @@ export class ResumeService {
         ...resumeData
       } = createResumeDto;
 
-      this.logger.log('Creating resume', createResumeDto);
-
       const resume = this.resumeRepository.create(resumeData);
 
       const savedResume = await this.resumeRepository.save(resume);
@@ -182,6 +180,38 @@ export class ResumeService {
       }
       this.logger.log('Resume found');
       return resume;
+    } catch (error) {
+      return {
+        data: {
+          status: HttpStatus.INTERNAL_SERVER_ERROR,
+          error: error.message,
+        },
+      };
+    }
+  }
+
+  async deleteResume(id: number): Promise<any | errorResponse> {
+    try {
+      const resume = await this.resumeRepository.findOne({
+        where: { id },
+        relations: ['experience', 'education', 'projects'],
+      });
+      if (!resume) {
+        return {
+          data: {
+            status: HttpStatus.NOT_FOUND,
+            error: 'Resume not found',
+          },
+        };
+      }
+      await this.resumeRepository.manager.remove(resume.experience);
+      await this.resumeRepository.manager.remove(resume.education);
+      await this.resumeRepository.manager.remove(resume.projects);
+      // await this.resumeRepository.manager.remove(resume.awards);
+      // await this.resumeRepository.manager.remove(resume.certifications);
+
+      await this.resumeRepository.remove(resume);
+      return { status: 200, message: 'Resume deleted successfully' };
     } catch (error) {
       return {
         data: {

@@ -14,7 +14,7 @@ class ExperienceDto {
   @IsString()
   description: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   startDate: Date;
 
   @IsOptional()
@@ -31,7 +31,7 @@ class EducationDto {
   @IsString()
   degree: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   startDate: Date;
 
   @IsOptional()
@@ -51,7 +51,7 @@ class ProjectDto {
   @IsString()
   description: string;
 
-  @IsNotEmpty()
+  @IsOptional()
   startDate: Date;
 
   @IsOptional()
