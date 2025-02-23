@@ -1,0 +1,19 @@
+config:
+  target: 'http://localhost:5000' # Replace with your API's base URL
+  phases:
+    - duration: 60 # Test duration in seconds
+      arrivalRate: 10 # Number of virtual users to simulate per second
+
+scenarios:
+  - flow:
+      - post:
+          url: '/user/login' # Replace with your login endpoint
+          json:
+            email: 'sample@gmail.com' # Hardcoded test data
+            password: '123456'
+
+variables:
+  email: ['sample@gmail.com'] # Add different usernames for simulation
+  password: ['123456'] # Add different passwords for simulation
+
+debug: true
