@@ -62,6 +62,11 @@ export class UserController {
     return this.userService.login(body.email, body.password);
   }
 
+  @Post('/register')
+  async registerLogin(@Body() email: string): Promise<string | errorResponse> {
+    return this.userService.registerLogin(email);
+  }
+
   @Put('/update')
   @UseGuards(JwtAuthGuard)
   @Roles('CUSTOMER', 'ADMIN')

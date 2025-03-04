@@ -8,6 +8,7 @@ import * as jwt from 'jsonwebtoken';
 import { userResponse } from './user.entity';
 import { errorResponse } from './user.entity';
 import uploadFiles from 'src/libraries/minioLib';
+import { Resend } from 'resend';
 
 @Injectable()
 export class UserService {
@@ -15,6 +16,27 @@ export class UserService {
     @InjectRepository(User)
     private userRepository: Repository<User>,
   ) {}
+
+  async sendOtp(email: string): Promise<any> {
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    const otp = Math.floor(1000 + Math.random() * 9000).toString();
+    try {
+      const { data, error } = await resend.emails.send({
+        from: 'onboarding@resend.dev',
+        to: 'munipallegopikrishna@gmail.com',
+        subject: 'Your OTP Code',
+        html: `<strong>Your OTP code is: ${otp}</strong>`,
+      });
+      console.log(error, data);
+
+      if (error) {
+        throw new Error('Error sending OTP');
+      }
+      return data;
+    } catch (error) {
+      console.error('Error while sending OTP:', error);
+    }
+  }
 
   async findAll(): Promise<userResponse[] | errorResponse> {
     try {
@@ -183,6 +205,33 @@ export class UserService {
       return {
         data: {
           error,
+          status: HttpStatus.INTERNAL_SERVER_ERROR,
+        },
+      };
+    }
+  }
+
+  async registerLogin(email: string): Promise<string | errorResponse> {
+    try {
+      let userDoc = await this.userRepository.findOne({ where: { email } });
+
+      if (!userDoc) {
+        userDoc = this.userRepository.create({
+          email: email,
+        });
+        await this.userRepository.save(userDoc);
+      }
+
+      const otp = await this.sendOtp(email);
+
+      userDoc.otp = otp;
+      await this.userRepository.save(userDoc);
+
+      return 'OTP has been sent to your email address.';
+    } catch (error) {
+      return {
+        data: {
+          error: error.message || 'Internal server error',
           status: HttpStatus.INTERNAL_SERVER_ERROR,
         },
       };
