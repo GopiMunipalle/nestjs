@@ -45,26 +45,17 @@ export class UserController {
 
   @Post('/signup')
   async signUpUser(
-    @Body() body: createUserDto,
-  ): Promise<userResponse | errorResponse> {
-    return this.userService.signUp(
-      body.name,
-      body.email,
-      body.password,
-      body.role,
-    );
+    @Body() body: { email: string },
+  ): Promise<{ data: { status: number; message: string } } | errorResponse> {
+    console.log(body, 'data');
+    return this.userService.registerWithEmail(body.email);
   }
 
   @Post('/login')
-  async loginUser(
-    @Body() body: loginUserDto,
+  async Login(
+    @Body() body: { email: string; otp: string },
   ): Promise<userResponse | errorResponse> {
-    return this.userService.login(body.email, body.password);
-  }
-
-  @Post('/register')
-  async registerLogin(@Body() email: string): Promise<string | errorResponse> {
-    return this.userService.registerLogin(email);
+    return this.userService.login(body.email, body.otp);
   }
 
   @Put('/update')

@@ -23,18 +23,17 @@ export class UserService {
     try {
       const { data, error } = await resend.emails.send({
         from: 'onboarding@resend.dev',
-        to: 'munipallegopikrishna@gmail.com',
+        to: String(email),
         subject: 'Your OTP Code',
         html: `<strong>Your OTP code is: ${otp}</strong>`,
       });
       console.log(error, data);
-
       if (error) {
-        throw new Error('Error sending OTP');
+        return { code: error.name, message: error.message };
       }
-      return data;
+      return data.id;
     } catch (error) {
-      console.error('Error while sending OTP:', error);
+      return error.message;
     }
   }
 
@@ -101,67 +100,9 @@ export class UserService {
     }
   }
 
-  async signUp(
-    name: string,
-    email: string,
-    password: string,
-    role: Role,
-  ): Promise<userResponse | errorResponse> {
-    try {
-      if (role === 'ADMIN') {
-        return {
-          data: {
-            error: 'Admin role not allowed',
-            status: HttpStatus.BAD_REQUEST,
-          },
-        };
-      }
-      const existingUser = await this.userRepository.findOne({
-        where: { email },
-      });
-      if (existingUser) {
-        return {
-          data: {
-            error: 'User With this email already exists',
-            status: HttpStatus.BAD_REQUEST,
-          },
-        };
-      }
-      const passwordHash = await bcrypt.hash(password, 10);
-      const newUser = this.userRepository.create({
-        name,
-        email,
-        password: passwordHash,
-        role,
-      });
-      const savedUser = await this.userRepository.save(newUser);
-
-      return {
-        data: {
-          name: name.toLowerCase(),
-          email: email.toLowerCase(),
-          id: savedUser.id,
-          number: savedUser.number,
-          linkedinUrl: savedUser.linkedinUrl,
-          githubUrl: savedUser.githubUrl,
-          role: savedUser.role,
-          createdAt: savedUser.createdAt,
-          updatedAt: savedUser.updatedAt,
-        },
-      };
-    } catch (error) {
-      return {
-        data: {
-          error: error.message,
-          status: HttpStatus.INTERNAL_SERVER_ERROR,
-        },
-      };
-    }
-  }
-
   async login(
     email: string,
-    password: string,
+    otp: string,
   ): Promise<userResponse | errorResponse> {
     try {
       const user = await this.userRepository.findOne({
@@ -175,11 +116,21 @@ export class UserService {
           },
         };
       }
-      const isMatch = await bcrypt.compare(password, user.password);
+      const isMatch = otp === user.otp;
       if (!isMatch) {
         return {
           data: {
-            error: 'Invalid Password',
+            error: 'Invalid OTP',
+            status: HttpStatus.UNAUTHORIZED,
+          },
+        };
+      }
+      const currentTime = Date.now();
+      const otpExpirationTime = user.updatedAt.getTime() + 2 * 60 * 60 * 1000;
+      if (currentTime > otpExpirationTime) {
+        return {
+          data: {
+            error: 'OTP has expired',
             status: HttpStatus.UNAUTHORIZED,
           },
         };
@@ -211,7 +162,9 @@ export class UserService {
     }
   }
 
-  async registerLogin(email: string): Promise<string | errorResponse> {
+  async registerWithEmail(
+    email: string,
+  ): Promise<{ data: { status: number; message: string } } | errorResponse> {
     try {
       let userDoc = await this.userRepository.findOne({ where: { email } });
 
@@ -223,11 +176,24 @@ export class UserService {
       }
 
       const otp = await this.sendOtp(email);
-
+      console.log('otp', otp);
+      if (otp.code) {
+        return {
+          data: {
+            status: HttpStatus.INTERNAL_SERVER_ERROR,
+            message: otp || 'Internal server error',
+          },
+        };
+      }
       userDoc.otp = otp;
       await this.userRepository.save(userDoc);
 
-      return 'OTP has been sent to your email address.';
+      return {
+        data: {
+          status: HttpStatus.OK,
+          message: 'OTP sent successfully',
+        },
+      };
     } catch (error) {
       return {
         data: {
@@ -315,6 +281,54 @@ export class UserService {
       }
       await this.userRepository.delete({ id: user.id });
       return 'User removed successfully';
+    } catch (error) {
+      return {
+        data: {
+          error: error.message,
+          status: HttpStatus.INTERNAL_SERVER_ERROR,
+        },
+      };
+    }
+  }
+
+  async Login(
+    email: string,
+    otp: string,
+  ): Promise<userResponse | errorResponse> {
+    try {
+      const user = await this.userRepository.findOne({ where: { email } });
+      if (!user) {
+        return {
+          data: {
+            status: HttpStatus.NOT_FOUND,
+            error: 'User not found',
+          },
+        };
+      }
+      if (user.otp !== otp) {
+        return {
+          data: {
+            status: HttpStatus.UNAUTHORIZED,
+            error: 'Invalid OTP',
+          },
+        };
+      }
+      const jwtToken = jwt.sign({ id: user.id }, 'secret', { expiresIn: '7d' });
+      return {
+        data: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          number: user.number,
+          linkedinUrl: user.linkedinUrl,
+          githubUrl: user.githubUrl,
+          profilePicture: user.profilePicture,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt,
+          token: jwtToken,
+        },
+      };
     } catch (error) {
       return {
         data: {
