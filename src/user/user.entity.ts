@@ -48,7 +48,13 @@ export default class User {
   @Column({ nullable: true })
   otp?: string;
 
-  @OneToMany(() => Resume, (resume) => resume.user, { cascade: true })
+  @Column({ default: false })
+  isVerified: boolean;
+
+  @OneToMany(() => Resume, (resume) => resume.user, {
+    cascade: true,
+    onDelete: 'CASCADE',
+  })
   resumes: Resume[];
 
   @CreateDateColumn()

@@ -7,15 +7,11 @@ import {
   Post,
   Put,
   Req,
-  UploadedFile,
-  UploadedFiles,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { errorResponse, Role, userResponse } from './user.entity';
-import { createUserDto } from './dto/create-user.dto';
-import { loginUserDto } from './dto/login-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { Request } from 'express';
 import { RolesGuard } from 'src/guards/role-guard';
@@ -27,12 +23,12 @@ import { FileInterceptor } from '@nestjs/platform-express';
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
-  @Get()
+  @Get('/all')
   async getAllUsers(): Promise<userResponse[] | errorResponse> {
     return this.userService.findAll();
   }
 
-  @Get('/one')
+  @Get('/')
   @Roles('ADMIN', 'CUSTOMER')
   @UseGuards(RolesGuard)
   @UseGuards(JwtAuthGuard)
@@ -47,7 +43,6 @@ export class UserController {
   async signUpUser(
     @Body() body: { email: string },
   ): Promise<{ data: { status: number; message: string } } | errorResponse> {
-    console.log(body, 'data');
     return this.userService.registerWithEmail(body.email);
   }
 
@@ -58,33 +53,27 @@ export class UserController {
     return this.userService.login(body.email, body.otp);
   }
 
-  @Put('/update')
+  @Put('/')
   @UseGuards(JwtAuthGuard)
   @Roles('CUSTOMER', 'ADMIN')
   @UseInterceptors(FileInterceptor('profilePicture'))
-  async updateUser(
-    @Body() body: UpdateUserDto,
-    @UploadedFile() profilePicture: Express.Multer.File,
-    @Req() req: Request,
-  ) {
+  async updateUser(@Body() body: UpdateUserDto, @Req() req: Request) {
     const id = req['user'].id;
     return this.userService.updateUser(
       id,
       body.email,
       body.name,
-      body.password,
       body.githubUrl,
       body.linkedinUrl,
       body.number,
-      profilePicture,
     );
   }
 
-  @Delete()
-  @UseGuards(JwtAuthGuard)
+  @Delete('/remove')
   @Roles('CUSTOMER', 'ADMIN')
-  @UseGuards(RolesGuard)
-  async removeUser(@Param() req: Request) {
+  // @UseGuards(RolesGuard)
+  @UseGuards(JwtAuthGuard)
+  async removeUser(@Req() req: Request) {
     const id = req['user'].id;
     return this.userService.removeUser(id);
   }

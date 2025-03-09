@@ -1,13 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import * as bcrypt from 'bcrypt';
 import User, { Role } from './user.entity';
 import { HttpStatus } from '@nestjs/common';
 import * as jwt from 'jsonwebtoken';
 import { userResponse } from './user.entity';
 import { errorResponse } from './user.entity';
-import uploadFiles from 'src/libraries/minioLib';
 import { Resend } from 'resend';
 
 @Injectable()
@@ -27,11 +25,10 @@ export class UserService {
         subject: 'Your OTP Code',
         html: `<strong>Your OTP code is: ${otp}</strong>`,
       });
-      console.log(error, data);
       if (error) {
-        return { code: error.name, message: error.message };
+        return { code: error.name, message: error.message, status: 422 };
       }
-      return data.id;
+      return { code: otp, message: 'OTP sent successfully', status: 200 };
     } catch (error) {
       return error.message;
     }
@@ -67,7 +64,7 @@ export class UserService {
 
   async findOne(id: number): Promise<userResponse | errorResponse> {
     try {
-      const user = await this.userRepository.findOneOrFail({ where: { id } });
+      const user = await this.userRepository.findOne({ where: { id } });
       if (!user) {
         return {
           data: {
@@ -126,7 +123,7 @@ export class UserService {
         };
       }
       const currentTime = Date.now();
-      const otpExpirationTime = user.updatedAt.getTime() + 2 * 60 * 60 * 1000;
+      const otpExpirationTime = user.updatedAt.getTime() + 7 * 60 * 60 * 1000;
       if (currentTime > otpExpirationTime) {
         return {
           data: {
@@ -152,7 +149,6 @@ export class UserService {
         },
       };
     } catch (error) {
-      console.log(error);
       return {
         data: {
           error,
@@ -164,29 +160,52 @@ export class UserService {
 
   async registerWithEmail(
     email: string,
-  ): Promise<{ data: { status: number; message: string } } | errorResponse> {
+  ): Promise<{ data: any } | errorResponse> {
     try {
+      const { code, message, status } = await this.sendOtp(email);
+      if (status !== 200) {
+        return {
+          data: {
+            status: status,
+            message: message,
+          },
+        };
+      }
+
       let userDoc = await this.userRepository.findOne({ where: { email } });
 
       if (!userDoc) {
         userDoc = this.userRepository.create({
           email: email,
+          otp: code,
+          isVerified: true,
         });
         await this.userRepository.save(userDoc);
+      } else {
+        if (userDoc.isVerified) {
+          const jwtToken = jwt.sign({ id: userDoc.id }, 'secret', {
+            expiresIn: '1d',
+          });
+          return {
+            data: {
+              id: userDoc?.id,
+              email: userDoc?.email,
+              name: userDoc?.name,
+              number: userDoc?.number,
+              linkedinUrl: userDoc?.linkedinUrl,
+              githubUrl: userDoc?.githubUrl,
+              profilePicture: userDoc?.profilePicture,
+              role: userDoc?.role,
+              createdAt: userDoc?.createdAt,
+              updatedAt: userDoc?.updatedAt,
+              token: jwtToken,
+            },
+          };
+        }
+        userDoc.otp = code;
+        userDoc.isVerified = true;
+        await this.userRepository.save(userDoc);
       }
-
-      const otp = await this.sendOtp(email);
-      console.log('otp', otp);
-      if (otp.code) {
-        return {
-          data: {
-            status: HttpStatus.INTERNAL_SERVER_ERROR,
-            message: otp || 'Internal server error',
-          },
-        };
-      }
-      userDoc.otp = otp;
-      await this.userRepository.save(userDoc);
 
       return {
         data: {
@@ -208,11 +227,9 @@ export class UserService {
     id: number,
     email: string,
     name: string,
-    password: string,
     githubUrl: string,
     linkedinUrl: string,
     number: string,
-    profilePicture: Express.Multer.File,
   ): Promise<userResponse | errorResponse> {
     const user = await this.userRepository.findOne({ where: { id } });
     if (!user) {
@@ -222,27 +239,6 @@ export class UserService {
           error: 'User not found',
         },
       };
-    }
-    let image = '';
-    if (profilePicture) {
-      // console.log(profilePicture)S
-      const url = await uploadFiles([
-        profilePicture,
-      ] as unknown as Express.Multer.File[]);
-      // image = url[0].url;
-    }
-    if (password) {
-      const isValidPassword = await bcrypt.compare(password, user.password);
-      if (!isValidPassword) {
-        return {
-          data: {
-            status: HttpStatus.UNAUTHORIZED,
-            error: 'Invalid Password',
-          },
-        };
-      }
-      const hashedPassword = await bcrypt.hash(password, 10);
-      user.password = hashedPassword;
     }
 
     user.email = email || user.email;
@@ -268,9 +264,12 @@ export class UserService {
     };
   }
 
-  async removeUser(id: number): Promise<string | errorResponse> {
+  async removeUser(id: number): Promise<any | errorResponse> {
     try {
-      const user = await this.userRepository.findOne({ where: { id } });
+      const user = await this.userRepository.findOne({
+        where: { id },
+        relations: ['resumes'],
+      });
       if (!user) {
         return {
           data: {
@@ -279,8 +278,15 @@ export class UserService {
           },
         };
       }
-      await this.userRepository.delete({ id: user.id });
-      return 'User removed successfully';
+
+      await this.userRepository.remove(user);
+
+      return {
+        data: {
+          status: HttpStatus.OK,
+          message: 'User deleted successfully',
+        },
+      };
     } catch (error) {
       return {
         data: {
@@ -313,6 +319,8 @@ export class UserService {
           },
         };
       }
+      user.isVerified = true;
+      await this.userRepository.save(user);
       const jwtToken = jwt.sign({ id: user.id }, 'secret', { expiresIn: '7d' });
       return {
         data: {

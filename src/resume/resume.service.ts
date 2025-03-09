@@ -12,6 +12,7 @@ import {
 import { CreateResumeDto } from './dto/create-resume.dto';
 import User, { errorResponse } from 'src/user/user.entity';
 import { Request } from 'express';
+import UpdateResumeDto from './dto/update-resume.dto';
 
 @Injectable()
 export class ResumeService {
@@ -45,12 +46,11 @@ export class ResumeService {
         certifications,
         ...resumeData
       } = createResumeDto;
-
       const resume = this.resumeRepository.create(resumeData);
 
       const savedResume = await this.resumeRepository.save(resume);
 
-      if (experience) {
+      if (experience && experience.length > 0) {
         const experiences = this.experienceRepository.create(
           experience.map((exp) => ({ ...exp, resume: savedResume })),
         );
@@ -64,7 +64,7 @@ export class ResumeService {
         await this.educationRepository.save(educations);
       }
 
-      if (projects) {
+      if (projects && projects.length > 0) {
         const projectEntities = this.projectRepository.create(
           projects.map((project) => ({ ...project, resume: savedResume })),
         );
@@ -90,7 +90,7 @@ export class ResumeService {
       });
 
       if (user) {
-        this.logger.log('User found', user);
+        user.name = resumeData.name || user.name;
         user.number = resumeData.number || user.number;
         user.linkedinUrl = resumeData.linkedinUrl || user.linkedinUrl;
         user.githubUrl = resumeData.githubUrl || user.githubUrl;
@@ -109,6 +109,119 @@ export class ResumeService {
         ],
       });
       return resumeDoc;
+    } catch (error) {
+      return {
+        data: {
+          status: HttpStatus.INTERNAL_SERVER_ERROR,
+          error: error.message,
+        },
+      };
+    }
+  }
+
+  async updateResume(
+    createResumeDto: UpdateResumeDto,
+    id: number,
+  ): Promise<Resume | errorResponse> {
+    try {
+      const {
+        name,
+        number,
+        linkedinUrl,
+        githubUrl,
+        selectedTemplate,
+        skills,
+        summary,
+        experience,
+        projects,
+        education,
+        resumeId,
+      } = createResumeDto;
+      const userDoc = await this.userRepository.findOne({ where: { id } });
+      if (!userDoc) {
+        this.logger.warn('Resume not found');
+        return {
+          data: {
+            error: 'Resume not found',
+            status: HttpStatus.NOT_FOUND,
+          },
+        };
+      }
+
+      const resumeDoc = await this.resumeRepository.findOne({
+        where: { id: resumeId },
+      });
+
+      if (name) userDoc.name = name;
+      if (linkedinUrl) userDoc.linkedinUrl = linkedinUrl;
+      if (githubUrl) userDoc.githubUrl = githubUrl;
+      if (number) userDoc.number = number;
+
+      if (summary) resumeDoc.summary = summary;
+      if (selectedTemplate) resumeDoc.selectedTemplate = selectedTemplate;
+      if (skills && skills.length > 0) resumeDoc.skills = skills;
+
+      if (experience) {
+        const experienceDoc = await this.experienceRepository.find({
+          where: { resume: { id: resumeId } },
+        });
+
+        if (experienceDoc.length > 0) {
+          await this.experienceRepository.remove(experienceDoc);
+        }
+
+        if (experience.length > 0) {
+          const experienceEntities = this.experienceRepository.create(
+            experience.map((exp) => ({ ...exp, resume: resumeDoc })),
+          );
+          await this.experienceRepository.save(experienceEntities);
+        }
+      }
+
+      if (projects) {
+        const projectDoc = await this.projectRepository.find({
+          where: { resume: { id: resumeId } },
+        });
+        if (projectDoc.length > 0) {
+          await this.projectRepository.remove(projectDoc);
+        }
+        if (projects.length > 0) {
+          const projectEntities = this.projectRepository.create(
+            projects.map((project) => ({ ...project, resume: resumeDoc })),
+          );
+          await this.projectRepository.save(projectEntities);
+        }
+      }
+
+      if (education) {
+        const educationDoc = await this.educationRepository.find({
+          where: { resume: { id: resumeId } },
+        });
+        if (educationDoc.length > 0) {
+          await this.educationRepository.remove(educationDoc);
+        }
+        if (education.length > 0) {
+          const educations = this.educationRepository.create(
+            education.map((edu) => ({ ...edu, resume: resumeDoc })),
+          );
+          await this.educationRepository.save(educations);
+        }
+      }
+
+      await this.resumeRepository.save(resumeDoc);
+      await this.userRepository.save(userDoc);
+      const savedResume = await this.resumeRepository.findOne({
+        where: { id: resumeDoc.id },
+        relations: [
+          'experience',
+          'education',
+          'projects',
+          'awards',
+          'certifications',
+          'user',
+        ],
+      });
+      return savedResume;
     } catch (error) {
       return {
         data: {
