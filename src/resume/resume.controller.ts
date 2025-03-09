@@ -5,6 +5,7 @@ import {
   Get,
   Param,
   Post,
+  Put,
   Render,
   Req,
   UseGuards,
@@ -17,6 +18,7 @@ import { RolesGuard } from 'src/guards/role-guard';
 import { Roles } from 'src/user-role/user-role.decorator';
 import { errorResponse } from 'src/user/user.entity';
 import ResumeResponseDto from './dto/resume-response.dto';
+import UpdateResumeDto from './dto/update-resume.dto';
 
 @Controller('resume')
 export class ResumeController {
@@ -51,15 +53,26 @@ export class ResumeController {
     return this.resumeService.findOneWithRelations(id);
   }
 
-  @Post()
+  @Post('/')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('CUSTOMER', 'ADMIN')
   async generateResume(
-    @Body() createResumeDto: CreateResumeDto,
+    @Body() createResumeDto: any,
     @Req() req: Request,
   ): Promise<any | errorResponse> {
     const userId = req['user'].id;
     return this.resumeService.createResume(createResumeDto, userId);
+  }
+
+  @Put('/')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('CUSTOMER', 'ADMIN')
+  async updateResume(
+    @Body() createResumeDto: UpdateResumeDto,
+    @Req() req: Request,
+  ) {
+    const userId = req['user'].id;
+    return this.resumeService.updateResume(createResumeDto, userId);
   }
 
   @Delete('/:id')

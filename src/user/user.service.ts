@@ -1,13 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import * as bcrypt from 'bcrypt';
 import User, { Role } from './user.entity';
 import { HttpStatus } from '@nestjs/common';
 import * as jwt from 'jsonwebtoken';
 import { userResponse } from './user.entity';
 import { errorResponse } from './user.entity';
-import uploadFiles from 'src/libraries/minioLib';
+import { Resend } from 'resend';
 
 @Injectable()
 export class UserService {
@@ -15,6 +14,25 @@ export class UserService {
     @InjectRepository(User)
     private userRepository: Repository<User>,
   ) {}
+
+  async sendOtp(email: string): Promise<any> {
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    const otp = Math.floor(1000 + Math.random() * 9000).toString();
+    try {
+      const { data, error } = await resend.emails.send({
+        from: 'onboarding@resend.dev',
+        to: String(email),
+        subject: 'Your OTP Code',
+        html: `<strong>Your OTP code is: ${otp}</strong>`,
+      });
+      if (error) {
+        return { code: error.name, message: error.message, status: 422 };
+      }
+      return { code: otp, message: 'OTP sent successfully', status: 200 };
+    } catch (error) {
+      return error.message;
+    }
+  }
 
   async findAll(): Promise<userResponse[] | errorResponse> {
     try {
@@ -46,7 +64,7 @@ export class UserService {
 
   async findOne(id: number): Promise<userResponse | errorResponse> {
     try {
-      const user = await this.userRepository.findOneOrFail({ where: { id } });
+      const user = await this.userRepository.findOne({ where: { id } });
       if (!user) {
         return {
           data: {
@@ -79,67 +97,9 @@ export class UserService {
     }
   }
 
-  async signUp(
-    name: string,
-    email: string,
-    password: string,
-    role: Role,
-  ): Promise<userResponse | errorResponse> {
-    try {
-      if (role === 'ADMIN') {
-        return {
-          data: {
-            error: 'Admin role not allowed',
-            status: HttpStatus.BAD_REQUEST,
-          },
-        };
-      }
-      const existingUser = await this.userRepository.findOne({
-        where: { email },
-      });
-      if (existingUser) {
-        return {
-          data: {
-            error: 'User With this email already exists',
-            status: HttpStatus.BAD_REQUEST,
-          },
-        };
-      }
-      const passwordHash = await bcrypt.hash(password, 10);
-      const newUser = this.userRepository.create({
-        name,
-        email,
-        password: passwordHash,
-        role,
-      });
-      const savedUser = await this.userRepository.save(newUser);
-
-      return {
-        data: {
-          name: name.toLowerCase(),
-          email: email.toLowerCase(),
-          id: savedUser.id,
-          number: savedUser.number,
-          linkedinUrl: savedUser.linkedinUrl,
-          githubUrl: savedUser.githubUrl,
-          role: savedUser.role,
-          createdAt: savedUser.createdAt,
-          updatedAt: savedUser.updatedAt,
-        },
-      };
-    } catch (error) {
-      return {
-        data: {
-          error: error.message,
-          status: HttpStatus.INTERNAL_SERVER_ERROR,
-        },
-      };
-    }
-  }
-
   async login(
     email: string,
-    password: string,
+    otp: string,
   ): Promise<userResponse | errorResponse> {
     try {
       const user = await this.userRepository.findOne({
@@ -153,11 +113,21 @@ export class UserService {
           },
         };
       }
-      const isMatch = await bcrypt.compare(password, user.password);
+      const isMatch = otp === user.otp;
       if (!isMatch) {
         return {
           data: {
-            error: 'Invalid Password',
+            error: 'Invalid OTP',
+            status: HttpStatus.UNAUTHORIZED,
+          },
+        };
+      }
+      const currentTime = Date.now();
+      const otpExpirationTime = user.updatedAt.getTime() + 7 * 60 * 60 * 1000;
+      if (currentTime > otpExpirationTime) {
+        return {
+          data: {
+            error: 'OTP has expired',
             status: HttpStatus.UNAUTHORIZED,
           },
         };
@@ -179,10 +149,74 @@ export class UserService {
         },
       };
     } catch (error) {
-      console.log(error);
       return {
         data: {
           error,
+          status: HttpStatus.INTERNAL_SERVER_ERROR,
+        },
+      };
+    }
+  }
+
+  async registerWithEmail(
+    email: string,
+  ): Promise<{ data: any } | errorResponse> {
+    try {
+      const { code, message, status } = await this.sendOtp(email);
+      if (status !== 200) {
+        return {
+          data: {
+            status: status,
+            message: message,
+          },
+        };
+      }
+
+      let userDoc = await this.userRepository.findOne({ where: { email } });
+
+      if (!userDoc) {
+        userDoc = this.userRepository.create({
+          email: email,
+          otp: code,
+          isVerified: true,
+        });
+        await this.userRepository.save(userDoc);
+      } else {
+        if (userDoc.isVerified) {
+          const jwtToken = jwt.sign({ id: userDoc.id }, 'secret', {
+            expiresIn: '1d',
+          });
+          return {
+            data: {
+              id: userDoc?.id,
+              email: userDoc?.email,
+              name: userDoc?.name,
+              number: userDoc?.number,
+              linkedinUrl: userDoc?.linkedinUrl,
+              githubUrl: userDoc?.githubUrl,
+              profilePicture: userDoc?.profilePicture,
+              role: userDoc?.role,
+              createdAt: userDoc?.createdAt,
+              updatedAt: userDoc?.updatedAt,
+              token: jwtToken,
+            },
+          };
+        }
+        userDoc.otp = code;
+        userDoc.isVerified = true;
+        await this.userRepository.save(userDoc);
+      }
+
+      return {
+        data: {
+          status: HttpStatus.OK,
+          message: 'OTP sent successfully',
+        },
+      };
+    } catch (error) {
+      return {
+        data: {
+          error: error.message || 'Internal server error',
           status: HttpStatus.INTERNAL_SERVER_ERROR,
         },
       };
@@ -193,11 +227,9 @@ export class UserService {
     id: number,
     email: string,
     name: string,
-    password: string,
     githubUrl: string,
     linkedinUrl: string,
     number: string,
-    profilePicture: Express.Multer.File,
   ): Promise<userResponse | errorResponse> {
     const user = await this.userRepository.findOne({ where: { id } });
     if (!user) {
@@ -207,27 +239,6 @@ export class UserService {
           error: 'User not found',
         },
       };
-    }
-    let image = '';
-    if (profilePicture) {
-      // console.log(profilePicture)S
-      const url = await uploadFiles([
-        profilePicture,
-      ] as unknown as Express.Multer.File[]);
-      // image = url[0].url;
-    }
-    if (password) {
-      const isValidPassword = await bcrypt.compare(password, user.password);
-      if (!isValidPassword) {
-        return {
-          data: {
-            status: HttpStatus.UNAUTHORIZED,
-            error: 'Invalid Password',
-          },
-        };
-      }
-      const hashedPassword = await bcrypt.hash(password, 10);
-      user.password = hashedPassword;
     }
 
     user.email = email || user.email;
@@ -253,9 +264,12 @@ export class UserService {
     };
   }
 
-  async removeUser(id: number): Promise<string | errorResponse> {
+  async removeUser(id: number): Promise<any | errorResponse> {
     try {
-      const user = await this.userRepository.findOne({ where: { id } });
+      const user = await this.userRepository.findOne({
+        where: { id },
+        relations: ['resumes'],
+      });
       if (!user) {
         return {
           data: {
@@ -264,8 +278,65 @@ export class UserService {
           },
         };
       }
-      await this.userRepository.delete({ id: user.id });
-      return 'User removed successfully';
+
+      await this.userRepository.remove(user);
+
+      return {
+        data: {
+          status: HttpStatus.OK,
+          message: 'User deleted successfully',
+        },
+      };
+    } catch (error) {
+      return {
+        data: {
+          error: error.message,
+          status: HttpStatus.INTERNAL_SERVER_ERROR,
+        },
+      };
+    }
+  }
+
+  async Login(
+    email: string,
+    otp: string,
+  ): Promise<userResponse | errorResponse> {
+    try {
+      const user = await this.userRepository.findOne({ where: { email } });
+      if (!user) {
+        return {
+          data: {
+            status: HttpStatus.NOT_FOUND,
+            error: 'User not found',
+          },
+        };
+      }
+      if (user.otp !== otp) {
+        return {
+          data: {
+            status: HttpStatus.UNAUTHORIZED,
+            error: 'Invalid OTP',
+          },
+        };
+      }
+      user.isVerified = true;
+      await this.userRepository.save(user);
+      const jwtToken = jwt.sign({ id: user.id }, 'secret', { expiresIn: '7d' });
+      return {
+        data: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          number: user.number,
+          linkedinUrl: user.linkedinUrl,
+          githubUrl: user.githubUrl,
+          profilePicture: user.profilePicture,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt,
+          token: jwtToken,
+        },
+      };
     } catch (error) {
       return {
         data: {

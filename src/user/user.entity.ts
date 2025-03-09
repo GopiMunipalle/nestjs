@@ -18,14 +18,14 @@ export default class User {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column()
-  name: string;
+  @Column({ nullable: true })
+  name?: string;
 
   @Column()
   email: string;
 
-  @Column()
-  password: string;
+  @Column({ nullable: true })
+  password?: string;
 
   @Column({ nullable: true })
   number?: string;
@@ -42,10 +42,19 @@ export default class User {
   @Column({ default: true })
   isActive: boolean;
 
-  @Column({ type: 'enum', enum: Role })
+  @Column({ type: 'enum', enum: Role, default: Role.CUSTOMER })
   role: Role;
 
-  @OneToMany(() => Resume, (resume) => resume.user, { cascade: true })
+  @Column({ nullable: true })
+  otp?: string;
+
+  @Column({ default: false })
+  isVerified: boolean;
+
+  @OneToMany(() => Resume, (resume) => resume.user, {
+    cascade: true,
+    onDelete: 'CASCADE',
+  })
   resumes: Resume[];
 
   @CreateDateColumn()
@@ -67,6 +76,7 @@ export class userResponseData {
   createdAt: Date;
   updatedAt: Date;
   token?: string;
+  otp?: string;
 }
 
 export class userResponse {

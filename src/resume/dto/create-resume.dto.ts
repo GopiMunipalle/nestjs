@@ -9,19 +9,19 @@ import { Type } from 'class-transformer';
 
 class ExperienceDto {
   @IsString()
-  title: string;
+  title?: string;
 
   @IsString()
-  description: string;
+  description?: string;
 
   @IsOptional()
-  startDate: Date;
+  startDate?: Date;
 
   @IsOptional()
-  endDate: Date;
+  endDate?: Date;
 
   @IsOptional()
-  currentlyWorking: boolean;
+  currentlyWorking?: boolean;
 }
 
 class EducationDto {
@@ -35,36 +35,36 @@ class EducationDto {
   startDate: Date;
 
   @IsOptional()
-  endDate: Date;
+  endDate?: Date;
 
   @IsOptional()
-  currentlyWorking: boolean;
+  currentlyWorking?: boolean;
 
   @IsOptional()
-  percentage: number;
+  percentage?: number;
 }
 
 class ProjectDto {
   @IsString()
-  title: string;
+  title?: string;
 
   @IsString()
-  description: string;
+  description?: string;
 
   @IsOptional()
-  startDate: Date;
+  startDate?: Date;
 
   @IsOptional()
-  endDate: Date;
+  endDate?: Date;
 
   @IsOptional()
-  currentlyWorking: boolean;
+  currentlyWorking?: boolean;
 
   @IsOptional()
-  link: string;
+  link?: string;
 
   @IsOptional()
-  technologies: string;
+  technologies?: string;
 }
 
 class AwardDto {
@@ -85,7 +85,8 @@ class CertificationDto {
 
 export class CreateResumeDto {
   @IsNotEmpty()
-  userId: number;
+  @IsString()
+  name: string;
 
   @IsString()
   summary?: string;
@@ -95,9 +96,6 @@ export class CreateResumeDto {
 
   @IsString()
   linkedinUrl?: string;
-
-  // @IsString()
-  // profilePicture?: string;
 
   @IsString()
   number?: string;
@@ -130,4 +128,8 @@ export class CreateResumeDto {
   @IsArray()
   @IsString({ each: true })
   skills: string[];
+
+  @IsNotEmpty()
+  @IsString()
+  selectedTemplate: string;
 }

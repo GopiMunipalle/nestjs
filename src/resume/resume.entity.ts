@@ -15,31 +15,45 @@ export class Resume {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @ManyToOne(() => User, (user) => user.resumes)
+  @ManyToOne(() => User, (user) => user.resumes, {
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'userId' })
   user: User;
 
   @Column({ nullable: true })
   summary: string;
 
+  @Column({ nullable: true, default: '1' })
+  selectedTemplate: string;
+
   @OneToMany(() => Experience, (experience) => experience.resume, {
     cascade: true,
+    onDelete: 'CASCADE',
   })
   experience: Experience[];
 
   @OneToMany(() => Education, (education) => education.resume, {
     cascade: true,
+    onDelete: 'CASCADE',
   })
   education: Education[];
 
-  @OneToMany(() => Project, (project) => project.resume, { cascade: true })
+  @OneToMany(() => Project, (project) => project.resume, {
+    cascade: true,
+    onDelete: 'CASCADE',
+  })
   projects: Project[];
 
-  @OneToMany(() => Award, (award) => award.resume, { cascade: true })
+  @OneToMany(() => Award, (award) => award.resume, {
+    cascade: true,
+    onDelete: 'CASCADE',
+  })
   awards: Award[];
 
   @OneToMany(() => Certification, (certification) => certification.resume, {
     cascade: true,
+    onDelete: 'CASCADE',
   })
   certifications: Certification[];
 
