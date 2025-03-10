@@ -46,6 +46,9 @@ export default class User {
   role: Role;
 
   @Column({ nullable: true })
+  otpSentAt?: Date;
+
+  @Column({ nullable: true })
   otp?: string;
 
   @Column({ default: false })

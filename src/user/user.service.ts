@@ -1,36 +1,69 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import User, { Role } from './user.entity';
+import User from './user.entity';
 import { HttpStatus } from '@nestjs/common';
 import * as jwt from 'jsonwebtoken';
 import { userResponse } from './user.entity';
 import { errorResponse } from './user.entity';
-import { Resend } from 'resend';
+import * as nodemailer from 'nodemailer';
 
 @Injectable()
 export class UserService {
+  private transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASSWORD,
+    },
+  });
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
   ) {}
 
-  async sendOtp(email: string): Promise<any> {
-    const resend = new Resend(process.env.RESEND_API_KEY);
+  async sendOtp(
+    email: string,
+  ): Promise<{ code: string; message: string; status: number }> {
     const otp = Math.floor(1000 + Math.random() * 9000).toString();
     try {
-      const { data, error } = await resend.emails.send({
-        from: 'onboarding@resend.dev',
+      const info = await this.transporter.sendMail({
+        from: process.env.EMAIL_USER,
         to: String(email),
         subject: 'Your OTP Code',
-        html: `<strong>Your OTP code is: ${otp}</strong>`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e1e1e1; border-radius: 5px;">
+            <div style="background-color: #4285f4; padding: 20px; text-align: center; border-radius: 5px 5px 0 0;">
+              <h1 style="color: white; margin: 0; font-size: 24px;">Verification Code</h1>
+            </div>
+            <div style="padding: 20px; text-align: center;">
+              <p style="font-size: 16px; color: #333; margin-bottom: 30px;">Please use the following OTP code to complete your verification:</p>
+              <div style="background-color: #f5f5f5; padding: 15px; border-radius: 5px; font-size: 28px; letter-spacing: 5px; font-weight: bold; color: #333; margin-bottom: 30px;">
+                ${otp}
+              </div>
+              <p style="font-size: 14px; color: #777;">This code will expire in 5 minutes.</p>
+              <p style="font-size: 14px; color: #777;">If you didn't request this code, please ignore this email.</p>
+            </div>
+            <div style="border-top: 1px solid #e1e1e1; padding-top: 20px; font-size: 12px; color: #777; text-align: center;">
+              <p>© ${new Date().getFullYear()} resumeeasy. All rights reserved.</p>
+            </div>
+          </div>
+        `,
       });
-      if (error) {
-        return { code: error.name, message: error.message, status: 422 };
-      }
-      return { code: otp, message: 'OTP sent successfully', status: 200 };
+
+      console.log('Message ID:', info.messageId);
+
+      return {
+        code: otp,
+        message: 'Email sent successfully',
+        status: 200,
+      };
     } catch (error) {
-      return error.message;
+      return {
+        code: null,
+        message: 'Error sending email',
+        status: 500,
+      };
     }
   }
 
@@ -102,13 +135,14 @@ export class UserService {
     otp: string,
   ): Promise<userResponse | errorResponse> {
     try {
+      const normalizedEmail = email.toLowerCase();
       const user = await this.userRepository.findOne({
-        where: { email: email.toLowerCase() },
+        where: { email: normalizedEmail },
       });
       if (!user) {
         return {
           data: {
-            error: 'User not found',
+            error: 'User  not found',
             status: HttpStatus.NOT_FOUND,
           },
         };
@@ -122,9 +156,9 @@ export class UserService {
           },
         };
       }
-      const currentTime = Date.now();
-      const otpExpirationTime = user.updatedAt.getTime() + 7 * 60 * 60 * 1000;
-      if (currentTime > otpExpirationTime) {
+      const currentTime = new Date().getTime();
+      const otpExpirationTime = user.otpSentAt.getTime() + 5 * 60 * 1000;
+      if (Number(otpExpirationTime) <= Number(currentTime)) {
         return {
           data: {
             error: 'OTP has expired',
@@ -132,7 +166,10 @@ export class UserService {
           },
         };
       }
-      const jwtToken = jwt.sign({ id: user.id }, 'secret', { expiresIn: '7d' });
+
+      const jwtToken = jwt.sign({ id: user.id }, process.env.JWT_SECRET_KEY, {
+        expiresIn: '1d',
+      });
       return {
         data: {
           id: user.id,
@@ -151,7 +188,7 @@ export class UserService {
     } catch (error) {
       return {
         data: {
-          error,
+          error: 'Internal server error',
           status: HttpStatus.INTERNAL_SERVER_ERROR,
         },
       };
@@ -178,14 +215,18 @@ export class UserService {
         userDoc = this.userRepository.create({
           email: email,
           otp: code,
-          isVerified: true,
+          otpSentAt: new Date(),
         });
         await this.userRepository.save(userDoc);
       } else {
         if (userDoc.isVerified) {
-          const jwtToken = jwt.sign({ id: userDoc.id }, 'secret', {
-            expiresIn: '1d',
-          });
+          const jwtToken = jwt.sign(
+            { id: userDoc.id },
+            process.env.JWT_SECRET_KEY,
+            {
+              expiresIn: '1d',
+            },
+          );
           return {
             data: {
               id: userDoc?.id,
@@ -194,7 +235,6 @@ export class UserService {
               number: userDoc?.number,
               linkedinUrl: userDoc?.linkedinUrl,
               githubUrl: userDoc?.githubUrl,
-              profilePicture: userDoc?.profilePicture,
               role: userDoc?.role,
               createdAt: userDoc?.createdAt,
               updatedAt: userDoc?.updatedAt,
@@ -203,7 +243,7 @@ export class UserService {
           };
         }
         userDoc.otp = code;
-        userDoc.isVerified = true;
+        userDoc.otpSentAt = new Date();
         await this.userRepository.save(userDoc);
       }
 
@@ -285,56 +325,6 @@ export class UserService {
         data: {
           status: HttpStatus.OK,
           message: 'User deleted successfully',
-        },
-      };
-    } catch (error) {
-      return {
-        data: {
-          error: error.message,
-          status: HttpStatus.INTERNAL_SERVER_ERROR,
-        },
-      };
-    }
-  }
-
-  async Login(
-    email: string,
-    otp: string,
-  ): Promise<userResponse | errorResponse> {
-    try {
-      const user = await this.userRepository.findOne({ where: { email } });
-      if (!user) {
-        return {
-          data: {
-            status: HttpStatus.NOT_FOUND,
-            error: 'User not found',
-          },
-        };
-      }
-      if (user.otp !== otp) {
-        return {
-          data: {
-            status: HttpStatus.UNAUTHORIZED,
-            error: 'Invalid OTP',
-          },
-        };
-      }
-      user.isVerified = true;
-      await this.userRepository.save(user);
-      const jwtToken = jwt.sign({ id: user.id }, 'secret', { expiresIn: '7d' });
-      return {
-        data: {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role,
-          number: user.number,
-          linkedinUrl: user.linkedinUrl,
-          githubUrl: user.githubUrl,
-          profilePicture: user.profilePicture,
-          createdAt: user.createdAt,
-          updatedAt: user.updatedAt,
-          token: jwtToken,
         },
       };
     } catch (error) {
