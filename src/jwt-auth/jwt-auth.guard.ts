@@ -14,7 +14,10 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException('Auth Token not found');
     }
     try {
-      const decodedPayload = jwt.verify(token, 'secret') as jwt.JwtPayload;
+      const decodedPayload = jwt.verify(
+        token,
+        process.env.JWT_SECRET_KEY,
+      ) as jwt.JwtPayload;
       const userData = await this.userService.findOne(decodedPayload.id);
 
       if (!userData) {
